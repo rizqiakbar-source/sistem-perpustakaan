@@ -29,8 +29,8 @@ Aplikasi manajemen perpustakaan berbasis web yang dikembangkan menggunakan PHP n
 ## Login Demo
 | Role | Username | Password |
 |------|----------|----------|
-| Admin | admin | admin123 |
-| Anggota | 24781086 | 2026-06-21 |
+| Admin | |  |
+| Anggota |  |  |
 
 ## Author
 **Rizqi Akbar**  
