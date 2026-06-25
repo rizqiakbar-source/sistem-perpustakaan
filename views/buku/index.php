@@ -1,0 +1,469 @@
+<?php
+// views/buku/index.php - Daftar Buku
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../login.php');
+    exit();
+}
+require_once '../../config/database.php';
+
+// ===== PAGINATION =====
+$limit = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $limit;
+
+$total = $pdo->query("SELECT COUNT(*) FROM buku")->fetchColumn();
+$total_pages = ceil($total / $limit);
+
+$sql = "SELECT b.*, k.nama_kategori 
+        FROM buku b 
+        LEFT JOIN kategori_buku k ON b.kategori_id = k.kategori_id 
+        ORDER BY b.buku_id DESC 
+        LIMIT $limit OFFSET $offset";
+$stmt = $pdo->query($sql);
+$buku = $stmt->fetchAll();
+?>
+<!DOCTYPE html>
+<html lang="id" id="html">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Buku - Perpustakaan</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <style>
+        /* === VARIABLES === */
+        :root {
+            --bg-body: #f1f4f9;
+            --bg-card: #ffffff;
+            --text-color: #333;
+            --border-color: #eef2f7;
+            --shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        body.dark-mode {
+            --bg-body: #1a1a2e;
+            --bg-card: #16213e;
+            --text-color: #e8e8e8;
+            --border-color: #2a2a4a;
+            --shadow: 0 2px 12px rgba(0,0,0,0.3);
+        }
+        body {
+            background: var(--bg-body);
+            color: var(--text-color);
+            transition: 0.3s;
+        }
+
+        /* === SIDEBAR === */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 240px;
+            height: 100%;
+            background: #1a237e;
+            color: #fff;
+            padding: 20px 0;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        body.dark-mode .sidebar { background: #0d1b2a; }
+        .sidebar .brand { text-align: center; padding: 10px 0 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        .sidebar .brand h3 { font-size: 18px; font-weight: 700; }
+        .sidebar .brand small { font-size: 11px; opacity: 0.7; }
+        .sidebar .menu { list-style: none; padding: 0 15px; }
+        .sidebar .menu li { padding: 12px 16px; margin: 4px 0; border-radius: 10px; font-size: 14px; cursor: pointer; transition: 0.3s; color: rgba(255,255,255,0.7); }
+        .sidebar .menu li:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .sidebar .menu li.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 600; }
+        .sidebar .menu li .icon { margin-right: 12px; }
+
+        /* === MAIN === */
+        .main-content { margin-left: 240px; padding: 20px 30px; min-height: 100vh; }
+
+        /* === NAVBAR === */
+        .navbar-custom {
+            background: #1a237e !important;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        body.dark-mode .navbar-custom { background: #0d1b2a !important; }
+        .navbar-custom .navbar-brand { font-weight: 700; }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #fff;
+        }
+        .user-info .name { font-weight: 600; font-size: 14px; }
+        .user-info .role { font-size: 12px; opacity: 0.8; }
+        .user-info .logout { color: #ef9a9a; text-decoration: none; font-weight: 600; }
+        .user-info .logout:hover { text-decoration: underline; }
+
+        /* === AVATAR === */
+        .preview-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: #fff;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: #1a237e;
+        }
+        .preview-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: 0.3s;
+            color: #fff;
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.1); }
+
+        /* === HEADER === */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0 25px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 25px;
+        }
+        .top-header .page-title h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a237e;
+        }
+        body.dark-mode .top-header .page-title h2 { color: #90caf9; }
+        .top-header .page-title small { font-size: 13px; color: #888; }
+
+        /* === DROPDOWN PROFIL === */
+        .dropdown-profile .dropdown-toggle::after { display: none; }
+        .dropdown-profile .dropdown-menu {
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            padding: 8px 0;
+            min-width: 200px;
+            border: none;
+        }
+        .dropdown-profile .dropdown-item {
+            padding: 10px 20px;
+            font-size: 14px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .dropdown-profile .dropdown-item:hover { background: #f1f4f9; }
+        .dropdown-profile .dropdown-item .icon { margin-right: 10px; }
+        .dropdown-profile .dropdown-divider { margin: 6px 0; border-color: #eef2f7; }
+        .dropdown-profile .dropdown-item.logout-item { color: #c62828; }
+        .dropdown-profile .dropdown-item.logout-item:hover { background: #ffebee; }
+
+        /* === CARDS & TABLES === */
+        .card-custom {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+            transition: 0.3s;
+        }
+        .table-custom {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .table-custom thead th {
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 2px solid var(--border-color);
+            color: #888;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .table-custom tbody td {
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .table-custom tbody tr:hover { background: var(--bg-body); }
+
+        /* === BADGES === */
+        .badge-status {
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-status.success { background: #e8f5e9; color: #2e7d32; }
+        .badge-status.danger { background: #ffebee; color: #c62828; }
+        body.dark-mode .badge-status.success { background: #1b5e20; color: #a5d6a7; }
+        body.dark-mode .badge-status.danger { background: #b71c1c; color: #ef9a9a; }
+
+        /* === TOOLBAR === */
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .toolbar input {
+            padding: 8px 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            width: 220px;
+            background: var(--bg-body);
+            color: var(--text-color);
+        }
+        .toolbar input:focus { border-color: #1a237e; outline: none; }
+
+        /* === BUTTONS === */
+        .btn-primary { background: #1a237e; color: #fff; padding: 8px 18px; border: none; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; }
+        .btn-primary:hover { background: #0d1555; }
+        .btn-secondary { background: #e0e0e0; color: #555; padding: 8px 18px; border: none; border-radius: 8px; font-weight: 600; text-decoration: none; display: inline-block; }
+        .btn-secondary:hover { background: #c0c0c0; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; border: none; border-radius: 6px; text-decoration: none; display: inline-block; }
+        .btn-warning { background: #f9a825; color: #fff; }
+        .btn-danger { background: #c62828; color: #fff; }
+
+        /* === PAGINATION === */
+        .pagination-custom .page-link {
+            color: #1a237e;
+            border-radius: 8px;
+            margin: 0 3px;
+        }
+        .pagination-custom .page-item.active .page-link {
+            background: #1a237e;
+            border-color: #1a237e;
+            color: #fff;
+        }
+        body.dark-mode .pagination-custom .page-link {
+            background: #16213e;
+            border-color: #2a2a4a;
+            color: #90caf9;
+        }
+        body.dark-mode .pagination-custom .page-item.active .page-link {
+            background: #1a237e;
+            border-color: #1a237e;
+            color: #fff;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .sidebar { width: 60px; padding: 10px 0; }
+            .sidebar .brand h3 { display: none; }
+            .sidebar .brand small { display: none; }
+            .sidebar .menu li span { display: none; }
+            .sidebar .menu li { text-align: center; padding: 12px 0; }
+            .main-content { margin-left: 60px; padding: 15px; }
+            .top-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .toolbar input { width: 100%; }
+        }
+    </style>
+</head>
+<body id="body">
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+    <div class="brand">
+        <h3>📚 PERPUSTAKAAN</h3>
+        <small>Politeknik Negeri Lampung</small>
+    </div>
+    <ul class="menu">
+        <li onclick="location.href='../../index.php'"><span class="icon">📊</span> <span>Dashboard</span></li>
+        <li class="active"><span class="icon">📚</span> <span>Buku</span></li>
+        <li onclick="location.href='../anggota/index.php'"><span class="icon">👤</span> <span>Anggota</span></li>
+        <li onclick="location.href='../peminjaman/index.php'"><span class="icon">📝</span> <span>Peminjaman</span></li>
+        <li onclick="location.href='../pengembalian/index.php'"><span class="icon">↩️</span> <span>Pengembalian</span></li>
+        <li onclick="location.href='../laporan/index.php'"><span class="icon">📊</span> <span>Laporan</span></li>
+        <li onclick="location.href='../buku_digital.php'"><span class="icon">📱</span> <span>E-Book</span></li>
+    </ul>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main-content">
+
+    <!-- ===== NAVBAR ===== -->
+    <nav class="navbar navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <span class="navbar-brand">📚 SISTEM PERPUSTAKAAN</span>
+            <div class="user-info">
+                <button class="theme-toggle" id="themeToggle" title="Toggle Dark/Light Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+                
+                <!-- ===== DROPDOWN PROFIL ===== -->
+                <div class="dropdown dropdown-profile">
+                    <button class="btn p-0 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="preview-avatar">
+                            <?php 
+                            $user_id = $_SESSION['user_id'];
+                            $foto_path = '../../upload/foto_admin/' . $user_id . '.jpg';
+                            if (file_exists($foto_path)): ?>
+                                <img src="<?= $foto_path ?>" alt="Foto Profil">
+                            <?php else: ?>
+                                <?= strtoupper(substr($_SESSION['nama_lengkap'], 0, 1)) ?>
+                            <?php endif; ?>
+                        </div>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <div style="padding: 10px 20px; border-bottom: 1px solid #eef2f7;">
+                                <strong><?= htmlspecialchars($_SESSION['nama_lengkap']) ?></strong><br>
+                                <small style="color: #888; font-size: 12px;"><?= htmlspecialchars($_SESSION['username']) ?></small>
+                            </div>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="../profil_admin.php">
+                                <span class="icon">👤</span> My Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="../ubah_foto_admin.php">
+                                <span class="icon">📷</span> Ubah Foto
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="../ubah_password_admin.php">
+                                <span class="icon">🔒</span> Ubah Password
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item logout-item" href="../../logout.php">
+                                <span class="icon">🚪</span> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===== TOP HEADER ===== -->
+    <div class="top-header">
+        <div class="page-title">
+            <h2>📚 Data Buku</h2>
+            <small>Kelola koleksi buku perpustakaan</small>
+        </div>
+    </div>
+
+    <!-- ===== TOOLBAR ===== -->
+    <div class="toolbar">
+        <input type="text" placeholder="🔍 Cari Buku" id="searchInput" onkeyup="searchTable()">
+        <a href="tambah.php" class="btn-primary">➕ Tambah</a>
+        <a href="#" class="btn-secondary">📥 Export</a>
+    </div>
+
+    <!-- ===== TABEL ===== -->
+    <div class="card-custom">
+        <div class="table-responsive">
+            <table class="table-custom" id="bukuTable">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Judul Buku</th>
+                        <th>Penulis</th>
+                        <th>Kategori</th>
+                        <th>Stok</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (count($buku) > 0): ?>
+                        <?php $no = $offset + 1; foreach ($buku as $row): ?>
+                        <tr>
+                            <td><?= $no++ ?></td>
+                            <td><?= htmlspecialchars($row['judul']) ?></td>
+                            <td><?= htmlspecialchars($row['penulis']) ?></td>
+                            <td><?= htmlspecialchars($row['nama_kategori'] ?? '-') ?></td>
+                            <td><?= $row['stok'] ?></td>
+                            <td>
+                                <span class="badge-status <?= $row['status'] == 'tersedia' ? 'success' : 'danger' ?>">
+                                    <?= ucfirst($row['status']) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <a href="edit.php?id=<?= $row['buku_id'] ?>" class="btn-sm btn-warning">✏️</a>
+                                <a href="hapus.php?id=<?= $row['buku_id'] ?>" class="btn-sm btn-danger" onclick="return confirm('Yakin hapus?')">🗑️</a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="7" class="text-center">Belum ada data buku</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ===== PAGINATION ===== -->
+        <?php if ($total_pages > 1): ?>
+        <div class="pagination-custom mt-3">
+            <nav>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <a class="page-link" href="?page=<?= $page - 1 ?>">«</a>
+                    </li>
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                            <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+                        </li>
+                    <?php endfor; ?>
+                    <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                        <a class="page-link" href="?page=<?= $page + 1 ?>">»</a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="text-center text-muted small">
+                Menampilkan <?= count($buku) ?> dari <?= $total ?> data
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <div style="text-align:center; color:#aaa; font-size:12px; padding:20px 0 10px 0; border-top:1px solid var(--border-color); margin-top:20px;">
+        &copy; 2026 Politeknik Negeri Lampung
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../../assets/js/darkmode.js"></script>
+<script>
+function searchTable() {
+    let input = document.getElementById('searchInput');
+    let filter = input.value.toUpperCase();
+    let table = document.getElementById('bukuTable');
+    let tr = table.getElementsByTagName('tr');
+    for (let i = 1; i < tr.length; i++) {
+        let td = tr[i].getElementsByTagName('td');
+        let found = false;
+        for (let j = 0; j < td.length; j++) {
+            if (td[j]) {
+                let txtValue = td[j].textContent || td[j].innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        tr[i].style.display = found ? '' : 'none';
+    }
+}
+</script>
+
+</body>
+</html>

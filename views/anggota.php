@@ -1,0 +1,379 @@
+<?php
+session_start();
+
+// ===== CEK SESSION ADMIN =====
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login_admin.php');
+    exit();
+}
+
+require_once '../config/database.php';
+
+// ===== AMBIL DATA ANGGOTA =====
+$sql = "SELECT * FROM anggota ORDER BY anggota_id DESC";
+$anggota = $pdo->query($sql)->fetchAll();
+?>
+<!DOCTYPE html>
+<html lang="id" id="html">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Data Anggota - Perpustakaan</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <style>
+        /* ===== SAMA DENGAN STYLE DI ATAS ===== */
+        :root {
+            --bg-body: #f1f4f9;
+            --bg-card: #ffffff;
+            --text-color: #333;
+            --border-color: #eef2f7;
+            --shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        body.dark-mode {
+            --bg-body: #1a1a2e;
+            --bg-card: #16213e;
+            --text-color: #e8e8e8;
+            --border-color: #2a2a4a;
+            --shadow: 0 2px 12px rgba(0,0,0,0.3);
+        }
+        body {
+            background: var(--bg-body);
+            color: var(--text-color);
+            transition: 0.3s;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 240px;
+            height: 100%;
+            background: #1a237e;
+            color: #fff;
+            padding: 20px 0;
+            overflow-y: auto;
+            z-index: 9999;
+        }
+        body.dark-mode .sidebar { background: #0d1b2a; }
+        .sidebar .brand { text-align: center; padding: 10px 0 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        .sidebar .brand h3 { font-size: 18px; font-weight: 700; }
+        .sidebar .brand small { font-size: 11px; opacity: 0.7; }
+        .sidebar .menu { list-style: none; padding: 0 15px; }
+        .sidebar .menu li { padding: 12px 16px; margin: 4px 0; border-radius: 10px; font-size: 14px; cursor: pointer; transition: 0.3s; color: rgba(255,255,255,0.7); }
+        .sidebar .menu li:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .sidebar .menu li.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 600; }
+        .sidebar .menu li .icon { margin-right: 12px; }
+        .main-content { margin-left: 240px; padding: 20px 30px; min-height: 100vh; }
+        .navbar-custom {
+            background: #1a237e !important;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 9998;
+        }
+        body.dark-mode .navbar-custom { background: #0d1b2a !important; }
+        .navbar-custom .navbar-brand { font-weight: 700; }
+        .card-custom {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+            transition: 0.3s;
+        }
+        .card-custom .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 15px;
+        }
+        .table-custom {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .table-custom thead th {
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 2px solid var(--border-color);
+            color: #888;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .table-custom tbody td {
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .table-custom tbody tr:hover { background: var(--bg-body); }
+        .badge-status {
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-status.success { background: #e8f5e9; color: #2e7d32; }
+        .badge-status.danger { background: #ffebee; color: #c62828; }
+        .badge-status.warning { background: #fff3e0; color: #e65100; }
+        .badge-status.info { background: #e3f2fd; color: #0d47a1; }
+        body.dark-mode .badge-status.success { background: #1b5e20; color: #a5d6a7; }
+        body.dark-mode .badge-status.danger { background: #b71c1c; color: #ef9a9a; }
+        body.dark-mode .badge-status.warning { background: #e65100; color: #ffe0b2; }
+        body.dark-mode .badge-status.info { background: #0d47a1; color: #90caf9; }
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: 0.3s;
+            color: #fff;
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.1); }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #fff;
+        }
+        .user-info .name { font-weight: 600; font-size: 14px; }
+        .user-info .logout { color: #ef9a9a; text-decoration: none; font-weight: 600; }
+        .user-info .logout:hover { text-decoration: underline; }
+        .preview-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: #fff;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: #1a237e;
+        }
+        .preview-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .dropdown-profile .dropdown-toggle::after { display: none; }
+        .dropdown-profile .dropdown-menu {
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            padding: 8px 0;
+            min-width: 200px;
+            border: none;
+            z-index: 99999;
+        }
+        .dropdown-profile .dropdown-item {
+            padding: 10px 20px;
+            font-size: 14px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .dropdown-profile .dropdown-item:hover { background: #f1f4f9; }
+        .dropdown-profile .dropdown-item .icon { margin-right: 10px; }
+        .dropdown-profile .dropdown-divider { margin: 6px 0; border-color: #eef2f7; }
+        .dropdown-profile .dropdown-item.logout-item { color: #c62828; }
+        .dropdown-profile .dropdown-item.logout-item:hover { background: #ffebee; }
+
+        .sidebar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #fff;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+        .sidebar-toggle:hover { background: rgba(255,255,255,0.1); }
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9998;
+        }
+        @media (max-width: 480px) {
+            .sidebar-toggle { display: block !important; }
+            .sidebar { width: 280px !important; left: -300px !important; transition: left 0.3s ease !important; z-index: 9999 !important; padding: 20px 0 !important; }
+            .sidebar.open { left: 0 !important; }
+            .sidebar .brand h3 { display: block !important; font-size: 16px !important; }
+            .sidebar .brand small { display: block !important; font-size: 10px !important; }
+            .sidebar .menu li span { display: inline !important; font-size: 13px !important; }
+            .sidebar .menu li { text-align: left !important; padding: 10px 16px !important; font-size: 13px !important; }
+            .sidebar .menu li .icon { margin-right: 12px !important; font-size: 16px !important; }
+            .sidebar-overlay.open { display: block !important; }
+            .main-content { margin-left: 0 !important; padding: 10px !important; }
+            .navbar-custom { padding: 8px 12px !important; }
+            .navbar-custom .navbar-brand { font-size: 14px !important; }
+            .user-info .name { font-size: 12px !important; }
+            .preview-avatar { width: 30px !important; height: 30px !important; font-size: 14px !important; }
+            .card-custom { padding: 12px 14px !important; margin-bottom: 12px !important; }
+            .card-custom .card-title { font-size: 14px !important; }
+            .table-custom { font-size: 11px !important; }
+            .table-custom thead th { font-size: 10px !important; padding: 6px 4px !important; }
+            .table-custom tbody td { font-size: 11px !important; padding: 6px 4px !important; }
+            .badge-status { font-size: 9px !important; padding: 2px 8px !important; }
+            .dropdown-profile .dropdown-menu { min-width: 160px !important; }
+        }
+        @media (min-width: 481px) and (max-width: 768px) {
+            .sidebar-toggle { display: block !important; }
+            .sidebar { width: 280px !important; left: -300px !important; transition: left 0.3s ease !important; z-index: 9999 !important; }
+            .sidebar.open { left: 0 !important; }
+            .sidebar .brand h3 { display: block !important; }
+            .sidebar .brand small { display: block !important; }
+            .sidebar .menu li span { display: inline !important; }
+            .sidebar .menu li { text-align: left !important; padding: 10px 16px !important; }
+            .sidebar .menu li .icon { margin-right: 12px !important; }
+            .sidebar-overlay.open { display: block !important; }
+            .main-content { margin-left: 0 !important; padding: 15px !important; }
+        }
+        @media (min-width: 769px) {
+            .sidebar-toggle { display: none !important; }
+            .sidebar-overlay { display: none !important; }
+            .sidebar { left: 0 !important; width: 240px !important; }
+            .main-content { margin-left: 240px !important; }
+        }
+    </style>
+</head>
+<body id="body">
+
+<!-- SIDEBAR OVERLAY (untuk mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- SIDEBAR ADMIN -->
+<?php include 'sidebar_admin.php'; ?>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+
+    <!-- ===== NAVBAR ===== -->
+    <nav class="navbar navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Sidebar">
+                ☰
+            </button>
+            <span class="navbar-brand">📚 SISTEM PERPUSTAKAAN</span>
+            <div class="user-info">
+                <button class="theme-toggle" id="themeToggle" title="Toggle Dark/Light Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <div class="dropdown dropdown-profile">
+                    <button class="btn p-0 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="preview-avatar">
+                            <?php 
+                            $user_id = $_SESSION['user_id'];
+                            $foto_path = '../upload/foto_admin/' . $user_id . '.jpg';
+                            if (file_exists($foto_path)): ?>
+                                <img src="<?= $foto_path ?>" alt="Foto Profil">
+                            <?php else: ?>
+                                <?= strtoupper(substr($_SESSION['nama_lengkap'], 0, 1)) ?>
+                            <?php endif; ?>
+                        </div>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <div style="padding: 10px 20px; border-bottom: 1px solid #eef2f7;">
+                                <strong><?= htmlspecialchars($_SESSION['nama_lengkap']) ?></strong><br>
+                                <small style="color: #888; font-size: 12px;"><?= htmlspecialchars($_SESSION['username']) ?></small>
+                            </div>
+                        </li>
+                        <li><a class="dropdown-item" href="profil_admin.php"><span class="icon">👤</span> My Profile</a></li>
+                        <li><a class="dropdown-item" href="ubah_foto_admin.php"><span class="icon">📷</span> Ubah Foto</a></li>
+                        <li><a class="dropdown-item" href="ubah_password_admin.php"><span class="icon">🔒</span> Ubah Password</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-item" href="../logout.php"><span class="icon">🚪</span> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===== HALAMAN ANGGOTA ===== -->
+    <div class="card-custom">
+        <div class="card-title"><span class="icon">👤</span> Data Anggota</div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>NIS/NIM</th>
+                        <th>Nama Lengkap</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (count($anggota) > 0): ?>
+                        <?php $no = 1; foreach ($anggota as $row): ?>
+                        <tr>
+                            <td><?= $no++ ?></td>
+                            <td><?= htmlspecialchars($row['nis_nim']) ?></td>
+                            <td><?= htmlspecialchars($row['nama_lengkap']) ?></td>
+                            <td><?= htmlspecialchars($row['email']) ?></td>
+                            <td><span class="badge-status <?= $row['status_aktif'] == 'aktif' ? 'success' : 'danger' ?>"><?= ucfirst($row['status_aktif']) ?></span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary">Edit</button>
+                                <button class="btn btn-sm btn-danger">Hapus</button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6" class="text-center">Belum ada data anggota</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <div style="text-align:center; color:#aaa; font-size:12px; padding:20px 0 10px 0; border-top:1px solid var(--border-color); margin-top:20px;">
+        &copy; 2026 Politeknik Negeri Lampung
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../assets/js/darkmode.js"></script>
+<script>
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const sidebar = document.querySelector('.sidebar');
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('open');
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('open');
+    }
+
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebar);
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebar);
+    }
+
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            closeSidebar();
+        }
+    });
+</script>
+
+</body>
+</html>
